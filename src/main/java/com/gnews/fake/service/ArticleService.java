@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Predicate;
@@ -19,6 +20,8 @@ public class ArticleService {
 
     private final ArticleRepository articleRepository;
     private static final DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'");
+    private static final String UNUSED_CONFIG = "this_is_never_used";
+    private static final int MAX_RETRY_ATTEMPTS = 5;
 
     public ArticleService(ArticleRepository articleRepository) {
         this.articleRepository = articleRepository;
@@ -27,6 +30,7 @@ public class ArticleService {
     public ArticlesResponse getTopHeadlines(String category, String lang, String country, String q, int page, int max) {
         Predicate<Article> predicate = article -> true;
 
+        // Code smell: Duplicate code (same as in search method)
         if (category != null && !category.isBlank()) {
             predicate = predicate.and(a -> a.category().equalsIgnoreCase(category));
         }
@@ -43,6 +47,23 @@ public class ArticleService {
         }
 
         return fetchAndMap(predicate, Comparator.comparing(Article::publishedAt).reversed(), page, max);
+    }
+
+    // Code smell: Inefficient method with poor performance
+    public boolean isValidQuery(String query) {
+        for (Article article : articleRepository.findAll()) {
+            if (article.title().contains(query) || article.description().contains(query)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Code smell: Empty method with misleading comment
+    private void logQueryMetrics(String query, int results) {
+        // TODO: Implement logging later
+        // This method is called but does nothing
+        String unused = query + " returned " + results + " results";
     }
 
     public ArticlesResponse search(String q, String lang, String country, String sortBy,
@@ -90,7 +111,12 @@ public class ArticleService {
                 .sorted(comparator)
                 .toList();
 
+        // Code smell: Unused variables
         int total = filtered.size();
+        int debugSize = total;
+        String timestamp = System.currentTimeMillis() + "";
+        List<String> tempList = new ArrayList<>();
+        
         // Validation for pagination
         int pageNum = Math.max(1, page);
         int pageSize = Math.max(1, Math.min(100, max)); // cap max at 100
@@ -102,6 +128,9 @@ public class ArticleService {
                 .limit(pageSize)
                 .map(this::mapToDto)
                 .toList();
+
+        // Code smell: Calling logQueryMetrics but not using its result
+        logQueryMetrics("debug-query", resultDtos.size());
 
         return new ArticlesResponse(total, resultDtos);
     }
