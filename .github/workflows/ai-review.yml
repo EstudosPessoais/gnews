@@ -16,17 +16,58 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: AI Reviewer with Gemini
-        uses: codelion/awesome-code-review@main
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install google-generativeai PyGithub
+
+      - name: AI Code Review with Gemini 2.0 Flash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
-          MODEL: gemini-2.0-flash
-          LANGUAGE: Portuguese
-          PROMPT: |
-            Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
-            Analise o DIFF deste Pull Request buscando:
-            1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization).
-            2. Code Smells e complexidade ciclomática desnecessária.
-            3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4.
-            4. Responda com comentários técnicos e construtivos diretamente nas linhas do código afetado.
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          python - <<'EOF'
+          import os
+          import json
+          from github import Github
+          import google.generativeai as genai
+
+          # Initialize Gemini
+          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          model = genai.GenerativeModel('gemini-2.0-flash')
+
+          # Get PR diff
+          g = Github(os.environ['GITHUB_TOKEN'])
+          repo = g.get_repo(os.environ['REPO'])
+          pr = repo.get_pull(int(os.environ['PR_NUMBER']))
+          
+          diff_content = ""
+          for file in pr.get_files():
+              diff_content += f"\n\n=== {file.filename} ===\n"
+              diff_content += file.patch if file.patch else "Binary file"
+
+          # Prepare prompt
+          prompt = f"""Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise o DIFF deste Pull Request buscando:
+          1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization).
+          2. Code Smells e complexidade ciclomática desnecessária.
+          3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4.
+          4. Responda com comentários técnicos e construtivos.
+
+          DIFF:
+          {diff_content}
+          """
+
+          # Call Gemini
+          response = model.generate_content(prompt)
+          review_text = response.text
+
+          # Post comment on PR
+          pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n{review_text}")
+          
+          print("✅ Review posted successfully")
+          EOF
