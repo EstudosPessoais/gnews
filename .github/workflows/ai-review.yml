@@ -17,7 +17,10 @@ jobs:
           fetch-depth: 0
 
       - name: Run Gemini CLI
+        id: gemini
         uses: google-github-actions/run-gemini-cli@main
+        env:
+          GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
         with:
           input: |
             Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise este Pull Request buscando:
@@ -26,8 +29,6 @@ jobs:
             3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4
             4. Responda com comentários técnicos e construtivos para cada vulnerability encontrada
           model: gemini-2.0-flash
-          google_api_key: ${{ secrets.AI_API_KEY }}
-          output: review.txt
 
       - name: Post Review on PR
         if: always()
@@ -35,10 +36,10 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const reviewText = fs.readFileSync('review.txt', 'utf8');
+            const logs = `${{ steps.gemini.outputs.response }}`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${reviewText}`
+              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${logs}`
             });
