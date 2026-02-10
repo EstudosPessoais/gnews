@@ -125,6 +125,7 @@ public class ArticleService {
 
     
     public List<News> findByTitle(String userInput) {
+        // Vulnerable to SQL Injection
         String query = "SELECT * FROM news WHERE title = '" + userInput + "'";
         return jdbcTemplate.query(query, new NewsRowMapper());
     }
