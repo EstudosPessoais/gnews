@@ -16,6 +16,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
       - name: AI Code Review with Gemini
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -23,26 +31,72 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
+          python - <<'PYTHON_EOF'
+          import os
+          import requests
+          import json
+
+          # Configurações
+          GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+          GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
+          PR_NUMBER = int(os.environ['PR_NUMBER'])
+          REPO = os.environ['REPO']
+
           # Get PR diff
-          curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/files" \
-            | jq -r '.[].patch' > pr_diff.txt
+          headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+          url = f"https://api.github.com/repos/{REPO}/pulls/{PR_NUMBER}/files"
+          files_response = requests.get(url, headers=headers)
+          
+          diff_content = ""
+          for file in files_response.json():
+              diff_content += f"\n\n=== {file['filename']} ===\n"
+              if file.get('patch'):
+                  diff_content += file['patch']
+              else:
+                  diff_content += "Binary file"
 
-          # Call Gemini API via REST
-          PROMPT="Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise o DIFF deste Pull Request buscando: 1. Vulnerabilidades OWASP Top 10 (SQL Injection, Insecure Deserialization). 2. Code Smells e complexidade ciclomática. 3. Aderência a melhores práticas de Java 25 e Spring Boot 3.4. Responda com comentários técnicos e construtivos.\n\nDIFF:\n$(cat pr_diff.txt)"
+          # Prepare prompt
+          prompt = f"""Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise o DIFF deste Pull Request buscando:
+          1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization)
+          2. Code Smells e complexidade ciclomática desnecessária
+          3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4
+          4. Responda com comentários técnicos e construtivos
 
-          RESPONSE=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$GEMINI_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"contents\": [{\"parts\": [{\"text\": \"$PROMPT\"}]}]}")
+          DIFF:
+          {diff_content}"""
 
-          # Extract review text
-          REVIEW=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text' 2>/dev/null || echo "Erro ao processar resposta do Gemini")
+          # Call Gemini API
+          gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+          payload = {
+              "contents": [{
+                  "parts": [{
+                      "text": prompt
+                  }]
+              }]
+          }
+          
+          response = requests.post(gemini_url, json=payload)
+          
+          if response.status_code == 200:
+              data = response.json()
+              try:
+                  review_text = data['candidates'][0]['content']['parts'][0]['text']
+              except (KeyError, IndexError) as e:
+                  review_text = f"Erro ao extrair resposta: {str(e)}\nResposta completa: {json.dumps(data, indent=2)}"
+          else:
+              review_text = f"Erro na API do Gemini: {response.status_code}\n{response.text}"
 
           # Post comment
-          curl -s -X POST \
-            -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" \
-            -d "{\"body\": \"## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n$REVIEW\"}"
-
-          echo "✅ Review posted successfully"
+          comment_url = f"https://api.github.com/repos/{REPO}/issues/{PR_NUMBER}/comments"
+          comment_data = {
+              "body": f"## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n{review_text}"
+          }
+          
+          comment_response = requests.post(comment_url, json=comment_data, headers=headers)
+          
+          if comment_response.status_code == 201:
+              print("✅ Review posted successfully")
+          else:
+              print(f"❌ Failed to post comment: {comment_response.status_code}")
+              print(comment_response.text)
+          PYTHON_EOF
