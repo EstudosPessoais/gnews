@@ -9,54 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
+      pull-requests: write # Necessário para comentar no PR
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Necessário para comparar branches
+          fetch-depth: 0
 
-      - name: Get PR Diff
-        id: diff
-        run: |
-          # Captura as mudanças entre a branch atual e a base do PR
-          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
-
-      - name: Run Gemini CLI
-        id: gemini
-        uses: google-github-actions/run-gemini-cli@main
-        with:
-          gemini_api_key: ${{ secrets.AI_API_KEY }}
-          # O segredo aqui é passar o arquivo pr_diff.txt no prompt
-          prompt: |
-            Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
-            Analise as mudanças abaixo buscando:
-            1. Vulnerabilidades OWASP Top 10 (SQL Injection, etc)
-            2. Code Smells e complexidade ciclomática
-            3. Java 25 e Spring Boot 3.4 best practices
-            
-            Diferencial: Responda em Português e seja direto.
-            
-            --- MUDANÇAS NO CÓDIGO ---
-            $(cat pr_diff.txt)
-          gemini_model: gemini-2.0-flash
-
-      - name: Post Review on PR
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            // A saída da action anterior fica disponível no step. outputs.text ou similar
-            // dependendo da versão, mas a forma mais segura é capturar o log ou via output definido
-            const response = process.env.GEMINI_OUTPUT; 
-            
-            if (response) {
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${response}`
-              });
-            }
+      - name: CodeRabbit AI Review
+        uses: coderabbitai/ai-review-agent@latest
         env:
-          GEMINI_OUTPUT: ${{ steps.gemini.outputs.text }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODERABBIT_TOKEN: ${{ secrets.CODERABBIT_TOKEN }}
