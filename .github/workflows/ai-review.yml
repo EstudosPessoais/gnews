@@ -19,27 +19,25 @@ jobs:
       - name: Run Gemini CLI
         id: gemini
         uses: google-github-actions/run-gemini-cli@main
-        env:
-          GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
         with:
-          input: |
+          gemini_api_key: ${{ secrets.AI_API_KEY }}
+          prompt: |
             Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise este Pull Request buscando:
             1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization)
             2. Code Smells e complexidade ciclomática desnecessária
             3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4
             4. Responda com comentários técnicos e construtivos para cada vulnerability encontrada
-          model: gemini-2.0-flash
+          gemini_model: gemini-2.0-flash
 
       - name: Post Review on PR
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const logs = `${{ steps.gemini.outputs.response }}`;
+            const response = `${{ steps.gemini.outputs.response }}`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${logs}`
+              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${response}`
             });
