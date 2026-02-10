@@ -23,7 +23,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.AI_API_KEY }}
           # Configuração para compatibilidade Gemini
           OPENAI_API_BASE: https://generativelanguage.googleapis.com/v1beta/openai/
-          MODEL: gemini-1.5-flash # Ou gemini-1.5-pro para revisões mais profundas
+          MODEL: gemini-2.0-flash
           LANGUAGE: Portuguese
           PROMPT: |
             Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
