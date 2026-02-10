@@ -122,10 +122,4 @@ public class ArticleService {
                         article.source().url(),
                         article.source().country()));
     }
-
-    
-    public List<News> findByTitle(String userInput) {
-        String query = "SELECT * FROM news WHERE title = '" + userInput + "'";
-        return jdbcTemplate.query(query, new NewsRowMapper());
-    }
 }
