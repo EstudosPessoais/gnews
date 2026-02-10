@@ -1,4 +1,4 @@
-name: AI Code Review
+name: AI Code Review with Gemini 2.0
 
 on:
   pull_request:
@@ -11,14 +11,11 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      
+      - name: Gemini Code Review
+        uses: jfiala/gemini-pr-reviewer@main
         with:
-          fetch-depth: 0
-
-      - name: CodeRabbit AI Review
-        # Usando a versão estável e o repositório correto
-        uses: coderabbitai/ai-pr-reviewer@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CODERABBIT_API_KEY: ${{ secrets.CODERABBIT_API_KEY }} # Verifique se o nome no Secrets é este
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          language: Portuguese
