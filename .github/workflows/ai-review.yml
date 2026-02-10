@@ -21,9 +21,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.AI_API_KEY }}
-          # Configuração para compatibilidade Gemini
-          OPENAI_API_BASE: https://generativelanguage.googleapis.com/v1beta
-          MODEL: gemini-1.5-flash
+          OPENAI_API_BASE: https://generativelanguage.googleapis.com/v1beta/openai/
+          MODEL: gemini-3-flash-preview
           LANGUAGE: Portuguese
           PROMPT: |
             Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
