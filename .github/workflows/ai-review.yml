@@ -16,60 +16,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: AI Code Review with Gemini
+        uses: google-github-actions/run-gemini-cli@v1
         with:
-          python-version: '3.11'
+          input: |
+            Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise este Pull Request buscando vulnerabilidades (OWASP Top 10), Code Smells, e aderência a melhores práticas de Java 25 e Spring Boot 3.4. 
+            
+            Diferenças do PR:
+            ${{ github.event.pull_request.diff_url }}
+          model: gemini-2.0-flash
+          google_api_key: ${{ secrets.AI_API_KEY }}
+          output: review_output.txt
 
-      - name: Install dependencies
-        run: pip install google-genai PyGithub
-
-      - name: AI Code Review with Gemini 1.5 Flash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          python - <<'EOF'
-          import os
-          from github import Github, Auth
-          import google.genai as genai
-
-          # Initialize Gemini with new client
-          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
-
-          # Get PR diff
-          auth = Auth.Token(os.environ['GITHUB_TOKEN'])
-          g = Github(auth=auth)
-          repo = g.get_repo(os.environ['REPO'])
-          pr = repo.get_pull(int(os.environ['PR_NUMBER']))
-          
-          diff_content = ""
-          for file in pr.get_files():
-              diff_content += f"\n\n=== {file.filename} ===\n"
-              diff_content += file.patch if file.patch else "Binary file"
-
-          # Prepare prompt
-          prompt = f"""Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise o DIFF deste Pull Request buscando:
-          1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization).
-          2. Code Smells e complexidade ciclomática desnecessária.
-          3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4.
-          4. Responda com comentários técnicos e construtivos.
-
-          DIFF:
-          {diff_content}
-          """
-
-          # Call Gemini 1.5 Flash (melhor quota que 2.0)
-          response = client.models.generate_content(
-              model="gemini-1.5-flash",
-              contents=prompt
-          )
-          review_text = response.text
-
-          # Post comment on PR
-          pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 1.5 Flash)\n\n{review_text}")
-          
-          print("✅ Review posted successfully")
-          EOF
+      - name: Post Review Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('review_output.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${output}`
+            });
