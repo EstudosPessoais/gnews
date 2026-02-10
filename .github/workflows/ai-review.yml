@@ -16,9 +16,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: CodeRabbit AI Review
-        # Usando a versão estável e o repositório correto
-        uses: coderabbitai/ai-pr-reviewer@latest
+      - name: AI Reviewer
+        uses: anc95/ChatGPT-CodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CODERABBIT_API_KEY: ${{ secrets.CODERABBIT_API_KEY }} # Verifique se o nome no Secrets é este
+          OPENAI_API_KEY: ${{ secrets.AI_API_KEY }}
+          # Configuração para compatibilidade Gemini
+          OPENAI_API_BASE: https://generativelanguage.googleapis.com/v1beta/openai/
+          MODEL: gemini-1.5-flash # Ou gemini-1.5-pro para revisões mais profundas
+          LANGUAGE: Portuguese
+          PROMPT: |
+            Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
+            Analise o DIFF deste Pull Request buscando:
+            1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization).
+            2. Code Smells e complexidade ciclomática desnecessária.
+            3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4.
+            4. Responda com comentários técnicos e construtivos diretamente nas linhas do código afetado.
