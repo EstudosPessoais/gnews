@@ -22,9 +22,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install google-generativeai PyGithub
+        run: pip install google-genai PyGithub
 
-      - name: AI Code Review with Gemini 2.0 Flash
+      - name: AI Code Review with Gemini 1.5 Flash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
@@ -33,16 +33,15 @@ jobs:
         run: |
           python - <<'EOF'
           import os
-          import json
-          from github import Github
-          import google.generativeai as genai
+          from github import Github, Auth
+          import google.genai as genai
 
-          # Initialize Gemini
-          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-          model = genai.GenerativeModel('gemini-2.0-flash')
+          # Initialize Gemini with new client
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
           # Get PR diff
-          g = Github(os.environ['GITHUB_TOKEN'])
+          auth = Auth.Token(os.environ['GITHUB_TOKEN'])
+          g = Github(auth=auth)
           repo = g.get_repo(os.environ['REPO'])
           pr = repo.get_pull(int(os.environ['PR_NUMBER']))
           
@@ -62,12 +61,15 @@ jobs:
           {diff_content}
           """
 
-          # Call Gemini
-          response = model.generate_content(prompt)
+          # Call Gemini 1.5 Flash (melhor quota que 2.0)
+          response = client.models.generate_content(
+              model="gemini-1.5-flash",
+              contents=prompt
+          )
           review_text = response.text
 
           # Post comment on PR
-          pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n{review_text}")
+          pr.create_issue_comment(f"## 🤖 AI Code Review (Gemini 1.5 Flash)\n\n{review_text}")
           
           print("✅ Review posted successfully")
           EOF
