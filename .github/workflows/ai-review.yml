@@ -16,87 +16,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Run Gemini CLI
+        uses: google-github-actions/run-gemini-cli@main
         with:
-          python-version: '3.11'
+          input: |
+            Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise este Pull Request buscando:
+            1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization)
+            2. Code Smells e complexidade ciclomática desnecessária
+            3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4
+            4. Responda com comentários técnicos e construtivos para cada vulnerability encontrada
+          model: gemini-2.0-flash
+          google_api_key: ${{ secrets.AI_API_KEY }}
+          output: review.txt
 
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: AI Code Review with Gemini
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GEMINI_API_KEY: ${{ secrets.AI_API_KEY }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: |
-          python - <<'PYTHON_EOF'
-          import os
-          import requests
-          import json
-
-          # Configurações
-          GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
-          GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
-          PR_NUMBER = int(os.environ['PR_NUMBER'])
-          REPO = os.environ['REPO']
-
-          # Get PR diff
-          headers = {'Authorization': f'token {GITHUB_TOKEN}'}
-          url = f"https://api.github.com/repos/{REPO}/pulls/{PR_NUMBER}/files"
-          files_response = requests.get(url, headers=headers)
-          
-          diff_content = ""
-          for file in files_response.json():
-              diff_content += f"\n\n=== {file['filename']} ===\n"
-              if file.get('patch'):
-                  diff_content += file['patch']
-              else:
-                  diff_content += "Binary file"
-
-          # Prepare prompt
-          prompt = f"""Aja como um Engenheiro de Segurança Sênior (DevSecOps). Analise o DIFF deste Pull Request buscando:
-          1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization)
-          2. Code Smells e complexidade ciclomática desnecessária
-          3. Aderência às melhores práticas de Java 25 e Spring Boot 3.4
-          4. Responda com comentários técnicos e construtivos
-
-          DIFF:
-          {diff_content}"""
-
-          # Call Gemini API
-          gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-          payload = {
-              "contents": [{
-                  "parts": [{
-                      "text": prompt
-                  }]
-              }]
-          }
-          
-          response = requests.post(gemini_url, json=payload)
-          
-          if response.status_code == 200:
-              data = response.json()
-              try:
-                  review_text = data['candidates'][0]['content']['parts'][0]['text']
-              except (KeyError, IndexError) as e:
-                  review_text = f"Erro ao extrair resposta: {str(e)}\nResposta completa: {json.dumps(data, indent=2)}"
-          else:
-              review_text = f"Erro na API do Gemini: {response.status_code}\n{response.text}"
-
-          # Post comment
-          comment_url = f"https://api.github.com/repos/{REPO}/issues/{PR_NUMBER}/comments"
-          comment_data = {
-              "body": f"## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n{review_text}"
-          }
-          
-          comment_response = requests.post(comment_url, json=comment_data, headers=headers)
-          
-          if comment_response.status_code == 201:
-              print("✅ Review posted successfully")
-          else:
-              print(f"❌ Failed to post comment: {comment_response.status_code}")
-              print(comment_response.text)
-          PYTHON_EOF
+      - name: Post Review on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reviewText = fs.readFileSync('review.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 AI Code Review (Gemini 2.0 Flash)\n\n${reviewText}`
+            });
