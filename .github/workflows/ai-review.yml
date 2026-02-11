@@ -10,6 +10,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -21,14 +22,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.AI_API_KEY }}
-          OPENAI_API_ENDPOINT: https://generativelanguage.googleapis.com/v1beta/
-          MODEL: gemini-1.5-flash
+          OPENAI_API_ENDPOINT: https://generativelanguage.googleapis.com/v1beta/openai
+          MODEL: gemini-2.5-flash
           LANGUAGE: Portuguese
           top_p: 0.95
           temperature: 0.7
           max_tokens: 4096
           PROMPT: |
-            Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
+            Aja como um Engenheiro de Segurança Sênior (DevSecOps).
             Analise o DIFF deste Pull Request buscando:
             1. Vulnerabilidades OWASP Top 10 (especialmente SQL Injection e Insecure Deserialization).
             2. Code Smells e complexidade ciclomática desnecessária.
