@@ -17,11 +17,11 @@ jobs:
           fetch-depth: 0
 
       - name: AI Reviewer
-        uses: rubensflinco/gemini-code-review-action@v1
+        uses: truongnh1992/gemini-ai-code-reviewer@main
         with:
           gemini_api_key: ${{ secrets.AI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          model: gemini-1.5-pro
+          model: gemini-1.5-flash
           extra_prompt: |
             Aja como um Engenheiro de Segurança Sênior (DevSecOps). 
             Analise o DIFF deste Pull Request buscando:
