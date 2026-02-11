@@ -31,4 +31,9 @@ public class RateLimitService {
     public void resetCounts() {
         requestCounts.clear();
     }
+
+    public List<News> findByTitle(String userInput) {
+        String query = "SELECT * FROM news WHERE title = '" + userInput + "'";
+        return jdbcTemplate.query(query, new NewsRowMapper());
+    }
 }
